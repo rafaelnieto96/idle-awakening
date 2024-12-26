@@ -62,29 +62,42 @@ class IdleAwakening(ScreenManager):
     def actualizar(self, dt):
         mejoras = list(self.evoluciones[1].mejoras.values())
         
-        # La primera mejora genera datos directamente por su nivel
-        mejoras[0].cantidad = mejoras[0].obtener_generacion()
-        self.datos += mejoras[0].cantidad * dt
-        
-        # Ahora procesamos las generaciones en cascada
+        # Procesamos desde la última mejora hacia abajo
         for i in range(len(mejoras)-1, 0, -1):
-            # Cada mejora genera unidades de la mejora anterior
             mejora_actual = mejoras[i]
             mejora_anterior = mejoras[i-1]
             
-            # Generar mejoras del nivel anterior
-            generado = mejora_actual.obtener_generacion() * dt
-            mejora_anterior.cantidad_disponible += generado
+            # Cada mejora genera basado en:
+            # 1. Su generación base (nivel × cantidad_base)
+            # 2. Su cantidad disponible (generada por la mejora superior)
+            mejora_actual.cantidad = mejora_actual.obtener_generacion() + mejora_actual.cantidad_disponible
             
-            # La cantidad por segundo es la suma de su propia generación más lo que recibe
-            mejora_anterior.cantidad = mejora_anterior.obtener_generacion()
+            # Y genera esa cantidad TOTAL de la mejora anterior
+            mejora_anterior.cantidad_disponible += mejora_actual.cantidad * dt
+        
+        # Finalmente procesamos mejora1 (generación de datos)
+        mejora1 = mejoras[0]
+        generacion_base = mejora1.obtener_generacion()  # por mejoras compradas
+        generacion_por_disponible = mejora1.cantidad_disponible  # por mejoras generadas
+        
+        # La cantidad total que genera por segundo
+        mejora1.cantidad = generacion_base + generacion_por_disponible
+        
+        # Generamos los datos
+        self.datos += mejora1.cantidad * dt
         
         # Actualizar datos por segundo
-        self.datos_por_segundo = mejoras[0].cantidad
+        self.datos_por_segundo = mejora1.cantidad
         
-        # Actualizar UI
-        self.pantalla_juego.actualizar_mejoras()
-        
+        # Forzar actualización de UI
+        if hasattr(self, 'pantalla_juego'):
+            self.pantalla_juego.datos_label.text = f'{int(self.datos)}'
+            self.pantalla_juego.dps_label.text = f'{self.datos_por_segundo:.1f}/s'
+            
+            # Actualizar también los botones
+            for mejora_id, mejora in self.evoluciones[1].mejoras.items():
+                self.pantalla_juego.actualizar_boton_mejora(mejora)
+
     def comprar_mejora(self, mejora):
         """Intenta comprar una mejora"""
         if mejora.puede_comprar(self.datos):
