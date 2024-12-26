@@ -135,7 +135,7 @@ class PantallaJuego(Screen):
 
     def _crear_evoluciones(self):
       scroll_view = ScrollView(
-          size_hint_y=0.84,  # Aumentamos el tamaño del scroll
+          size_hint_y=0.84,
           do_scroll_x=False,
           do_scroll_y=True
       )
@@ -148,16 +148,13 @@ class PantallaJuego(Screen):
           padding=[5, 5]
       )
       
+      # Diccionario para guardar los botones
+      self.botones_mejora = {}
+      
       for evolucion in self.game.evoluciones.values():
           for mejora in evolucion.mejoras.values():
-              btn = Button(
-                  text=f"{mejora.nombre}\nNivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos",
-                  size_hint_y=None,
-                  height=60,  # Altura más pequeña para los botones
-                  background_color=(0.3, 0.3, 0.35, 1) if mejora.desbloqueada else (0.2, 0.2, 0.2, 1),
-                  halign='center'
-              )
-              btn.bind(on_press=lambda x, m=mejora: self.game.comprar_mejora(m))
+              btn = self._crear_boton_mejora(mejora)
+              self.botones_mejora[mejora.id] = btn
               self.evoluciones_box.add_widget(btn)
       
       # Esto es crucial para que el scroll funcione correctamente
@@ -165,6 +162,19 @@ class PantallaJuego(Screen):
       scroll_view.add_widget(self.evoluciones_box)
       
       return scroll_view
+
+    def _crear_boton_mejora(self, mejora):
+        btn = Button(
+            text=f"{mejora.nombre}\n"
+            f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
+            f"Generando: {mejora.cantidad:.1f}/s",
+            size_hint_y=None,
+            height=60,
+            background_color=(0.3, 0.3, 0.35, 1) if mejora.desbloqueada else (0.2, 0.2, 0.2, 1),
+            halign='center'
+        )
+        btn.bind(on_press=lambda x, m=mejora: self.game.comprar_mejora(m))
+        return btn
 
     def _crear_navegacion(self):
         nav_box = BoxLayout(size_hint_y=0.1, spacing=5, padding=[5, 5])
@@ -188,7 +198,27 @@ class PantallaJuego(Screen):
         nav_box.add_widget(btn_visual)
         return nav_box
 
-    def actualizar(self):
-        """Actualiza todos los elementos de la UI"""
-        self.datos_label.text = f'{int(self.game.datos)}'
-        self.dps_label.text = f'{self.game.datos_por_segundo}/s'
+    def comprar_mejora(self, mejora):
+        if mejora.puede_comprar(self.datos):
+            costo = mejora.calcular_costo()
+            self.datos -= costo
+            mejora.nivel += 1
+            # Actualizar el botón específico
+            self.pantalla_juego.actualizar_boton_mejora(mejora)
+    
+    def actualizar_boton_mejora(self, mejora):
+      if mejora.id in self.botones_mejora:
+          btn = self.botones_mejora[mejora.id]
+          btn.text = (f"{mejora.nombre}\n"
+                    f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
+                    f"Generando: {mejora.cantidad:.1f}/s\n"
+                    f"Disponible: {mejora.cantidad_disponible:.1f}")
+
+    def actualizar_mejoras(self):
+      for mejora_id, btn in self.botones_mejora.items():
+          mejora = self.game.evoluciones[1].mejoras[mejora_id]
+          self.actualizar_boton_mejora(mejora)
+          
+      # Actualizar también los stats
+      self.datos_label.text = f'{int(self.game.datos)}'
+      self.dps_label.text = f'{self.game.datos_por_segundo}/s'

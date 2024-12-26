@@ -37,14 +37,14 @@ class IdleAwakening(ScreenManager):
         Clock.schedule_interval(self.actualizar, GAME_CONFIG['update_interval'])
 
     def _inicializar_evoluciones(self):
-        """Inicializa todas las evoluciones y sus mejoras"""
         for id_evolucion, datos in EVOLUCIONES.items():
             mejoras = {}
             for id_mejora, mejora_data in datos['mejoras'].items():
                 mejoras[id_mejora] = Mejora(
+                    id_mejora,
                     mejora_data['nombre'],
                     mejora_data['costo_base'],
-                    mejora_data['incremento_dps']
+                    mejora_data['cantidad_base']
                 )
             
             self.evoluciones[id_evolucion] = Evolucion(
@@ -60,18 +60,38 @@ class IdleAwakening(ScreenManager):
             mejora.desbloqueada = True
 
     def actualizar(self, dt):
-        """Actualización principal del juego"""
-        self.datos += self.datos_por_segundo
-        self.verificar_evoluciones()
-        self.pantalla_juego.actualizar()
+        mejoras = list(self.evoluciones[1].mejoras.values())
+        
+        # La primera mejora genera datos directamente por su nivel
+        mejoras[0].cantidad = mejoras[0].obtener_generacion()
+        self.datos += mejoras[0].cantidad * dt
+        
+        # Ahora procesamos las generaciones en cascada
+        for i in range(len(mejoras)-1, 0, -1):
+            # Cada mejora genera unidades de la mejora anterior
+            mejora_actual = mejoras[i]
+            mejora_anterior = mejoras[i-1]
+            
+            # Generar mejoras del nivel anterior
+            generado = mejora_actual.obtener_generacion() * dt
+            mejora_anterior.cantidad_disponible += generado
+            
+            # La cantidad por segundo es la suma de su propia generación más lo que recibe
+            mejora_anterior.cantidad = mejora_anterior.obtener_generacion()
+        
+        # Actualizar datos por segundo
+        self.datos_por_segundo = mejoras[0].cantidad
+        
+        # Actualizar UI
+        self.pantalla_juego.actualizar_mejoras()
         
     def comprar_mejora(self, mejora):
         """Intenta comprar una mejora"""
         if mejora.puede_comprar(self.datos):
             costo = mejora.calcular_costo()
             self.datos -= costo
-            self.datos_por_segundo += mejora.incremento_dps
             mejora.nivel += 1
+            self.pantalla_juego.actualizar_mejoras()
             
     def verificar_evoluciones(self):
         """Verifica si se puede desbloquear una nueva evolución"""
