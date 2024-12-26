@@ -1,3 +1,4 @@
+# run.py
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import subprocess
@@ -18,14 +19,16 @@ class MyHandler(FileSystemEventHandler):
         self.process = subprocess.Popen([python_exe, 'main.py'])
 
     def on_modified(self, event):
-        if event.src_path.endswith('main.py'):
-            print("Cambios detectados, reiniciando...")
+        # Verificar si el archivo modificado es un archivo Python
+        if event.src_path.endswith('.py'):
+            print(f"Cambios detectados en {event.src_path}, reiniciando...")
             self.restart_program()
 
 if __name__ == "__main__":
     event_handler = MyHandler()
     observer = Observer()
-    observer.schedule(event_handler, path='.', recursive=False)
+    # Monitorear el directorio actual y sus subdirectorios
+    observer.schedule(event_handler, path='.', recursive=True)
     observer.start()
 
     try:
