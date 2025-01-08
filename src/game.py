@@ -21,7 +21,6 @@ class IdleAwakening(ScreenManager):
         
         # Inicializar datos con el valor configurado
         self.datos = GAME_CONFIG['currency']['initial_amount']
-        # Corregir esta línea - asignar el valor directamente, no un nuevo NumericProperty
         self.datos_por_segundo = 1
         self.multiplicador_global = GAME_CONFIG['currency']['multiplier']
         
@@ -61,10 +60,10 @@ class IdleAwakening(ScreenManager):
                 mejoras
             )
             
-        # Desbloquear primera evolución
+        # Desbloquear solo las primeras 4 mejoras inicialmente
         self.evoluciones[1].desbloqueada = True
-        for mejora in self.evoluciones[1].mejoras.values():
-            mejora.desbloqueada = True
+        for i in range(1, 5):
+            self.evoluciones[1].mejoras[i].desbloqueada = True
 
     def actualizar(self, dt):
         mejoras = list(self.evoluciones[1].mejoras.values())
@@ -74,8 +73,12 @@ class IdleAwakening(ScreenManager):
             mejora_actual = mejoras[i]
             mejora_anterior = mejoras[i-1]
             
-            mejora_actual.cantidad = mejora_actual.obtener_generacion() + mejora_actual.cantidad_disponible
-            mejora_anterior.cantidad_disponible += mejora_actual.cantidad * dt
+            # Calcular cuánto genera esta mejora por segundo
+            mejora_actual.cantidad = mejora_actual.obtener_generacion()
+            
+            # Si no es mejora de desbloqueo, actualizar la cantidad disponible de la anterior
+            if mejora_actual.id % 4 != 0:
+                mejora_anterior.cantidad_disponible += mejora_actual.cantidad * dt
         
         # Procesamos mejora1 (generación de datos)
         mejora1 = mejoras[0]
@@ -88,19 +91,19 @@ class IdleAwakening(ScreenManager):
         # Generamos los datos
         self.datos += mejora1.cantidad * dt
         self.datos_por_segundo = mejora1.cantidad
-        
-        # Forzar actualización de UI
+
+    def _actualizar_ui(self):
         if hasattr(self, 'pantalla_juego'):
             self.pantalla_juego.datos_label.text = f'{int(self.datos)}'
             self.pantalla_juego.dps_label.text = f'{self.datos_por_segundo:.1f}/s'
             
-            # Actualizar también los botones y sus colores
             for mejora_id, mejora in self.evoluciones[1].mejoras.items():
-                self.pantalla_juego.actualizar_boton_mejora(mejora)
-                self.pantalla_juego._actualizar_color_boton(
-                    self.pantalla_juego.botones_mejora[mejora_id], 
-                    mejora
-                )
+                if mejora_id in self.pantalla_juego.botones_mejora:
+                    self.pantalla_juego.actualizar_boton_mejora(mejora)
+                    self.pantalla_juego._actualizar_color_boton(
+                        self.pantalla_juego.botones_mejora[mejora_id], 
+                        mejora
+                    )
 
     def comprar_mejora(self, mejora):
         """Intenta comprar una mejora"""
@@ -109,15 +112,29 @@ class IdleAwakening(ScreenManager):
             self.datos -= costo
             mejora.nivel += 1
             
-            # Actualizar todos los botones inmediatamente después de la compra
-            if hasattr(self, 'pantalla_juego'):
-                for mejora_id, mejora in self.evoluciones[1].mejoras.items():
-                    self.pantalla_juego.actualizar_boton_mejora(mejora)
-                    self.pantalla_juego._actualizar_color_boton(
-                        self.pantalla_juego.botones_mejora[mejora_id],
-                        mejora
-                    )
-            
+            # Si es una mejora de desbloqueo (4, 8, 12, 16)
+            if mejora.id % 4 == 0 and mejora.id < 20:
+                # Desbloquear las siguientes 4 mejoras
+                for i in range(mejora.id + 1, min(mejora.id + 5, 21)):
+                    if i in self.evoluciones[1].mejoras:
+                        self.evoluciones[1].mejoras[i].desbloqueada = True
+                # Actualizar la UI para mostrar las nuevas mejoras
+                self.pantalla_juego.desbloquear_nuevas_mejoras()
+                
+            # Forzar actualización de UI después de la compra
+            self._actualizar_ui()
+
+    def _desbloquear_siguientes_mejoras(self, id_mejora_actual):
+        # Desbloquear las siguientes 4 mejoras sin marcarlas como compradas
+        for i in range(id_mejora_actual + 1, min(id_mejora_actual + 5, 21)):
+            if i in self.evoluciones[1].mejoras:
+                mejora = self.evoluciones[1].mejoras[i]
+                mejora.desbloqueada = True
+                # No modificar el nivel aquí
+        
+        # Actualizar UI para mostrar nuevas mejoras
+        self.pantalla_juego.desbloquear_nuevas_mejoras()
+
     def verificar_evoluciones(self):
         """Verifica si se puede desbloquear una nueva evolución"""
         for evolucion in self.evoluciones.values():

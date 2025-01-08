@@ -1,21 +1,21 @@
 # src/screens/pantalla_juego.py
+from kivy.uix.image import Image
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.widget import Widget
 
 class PantallaJuego(Screen):
     def __init__(self, game_instance, **kwargs):
         super().__init__(**kwargs)
         self.game = game_instance
+        self.botones_mejora = {}
         
-        # Layout principal con menos padding para hacer la pantalla más rectangular
         self.layout = BoxLayout(
             orientation='vertical', 
-            padding=[5, 5],  # Reducido el padding
+            padding=[5, 5],
             spacing=5
         )
         
@@ -30,76 +30,18 @@ class PantallaJuego(Screen):
         
         self.add_widget(self.layout)
 
-    def _crear_header_con_stats(self):
-        header = BoxLayout(
-            size_hint_y=0.1, 
-            spacing=10
-        )
-        
-        # Título
-        header.add_widget(Label(
-            text='Idle Awakening',
-            font_size='24sp',
-            bold=True,
-            size_hint_x=0.6,
-            color=(0.9, 0.9, 1, 1)
-        ))
-        
-        # Stats en la esquina
-        stats_box = BoxLayout(
-            orientation='vertical',
-            size_hint_x=0.4,
-            padding=[5, 0]
-        )
-        
-        self.datos_label = Label(
-            text=f'{int(self.game.datos)} datos',
-            font_size='14sp',
-            halign='right'
-        )
-        self.dps_label = Label(
-            text=f'{self.game.datos_por_segundo}/s',
-            font_size='14sp',
-            halign='right'
-        )
-        self.nivel_label = Label(
-            text=f'Evolución {self.game.evolucion_actual}',
-            font_size='14sp',
-            halign='right'
-        )
-        
-        for label in [self.datos_label, self.dps_label, self.nivel_label]:
-            stats_box.add_widget(label)
-        
-        header.add_widget(stats_box)
-        return header
-    
-    def _crear_header(self):
-        titulo_box = BoxLayout(size_hint_y=0.1, padding=[0, 5])
-        titulo_box.add_widget(Label(
-            text='Idle Awakening',
-            font_size='24sp',
-            bold=True,
-            color=(0.9, 0.9, 1, 1)
-        ))
-        return titulo_box
-
     def _crear_stats(self):
         stats_container = BoxLayout(
             size_hint_y=0.06,
             padding=[5, 0]
         )
         
-        # Stats box alineado a la izquierda
         stats_box = BoxLayout(
             size_hint_x=0.4,
             spacing=10
         )
         
-        # Box para datos
-        datos_box = BoxLayout(
-            size_hint_x=0.5
-        )
+        datos_box = BoxLayout(size_hint_x=0.5)
         self.datos_label = Label(
             text=f'{int(self.game.datos)}',
             font_size='14sp',
@@ -113,16 +55,12 @@ class PantallaJuego(Screen):
         datos_box.add_widget(self.datos_label)
         datos_box.add_widget(datos_text)
         
-        # Box para datos por segundo
-        dps_box = BoxLayout(
-            size_hint_x=0.5
-        )
+        dps_box = BoxLayout(size_hint_x=0.5)
         self.dps_label = Label(
             text=f'{self.game.datos_por_segundo}',
             font_size='14sp',
             halign='right'
         )
-
         dps_box.add_widget(self.dps_label)
         
         stats_box.add_widget(datos_box)
@@ -135,75 +73,190 @@ class PantallaJuego(Screen):
 
     def _crear_evoluciones(self):
         scroll_view = ScrollView(
-            size_hint_y=0.84,
+            size_hint_y=0.8,
+            size_hint_x=1,  # Asegurarse de que ocupe todo el ancho
             do_scroll_x=False,
             do_scroll_y=True
         )
         
-        # Layout principal de evoluciones
-        self.evoluciones_box = BoxLayout(
+        self.mejoras_container = BoxLayout(
             orientation='vertical',
             size_hint_y=None,
-            spacing=10,
-            padding=[5, 5]
+            size_hint_x=1,  # Asegurarse de que ocupe todo el ancho
+            spacing=5,
+            padding=[10, 5]
         )
+        self.mejoras_container.bind(minimum_height=self.mejoras_container.setter('height'))
         
-        # Diccionario para guardar los botones
-        self.botones_mejora = {}
+        # Inicializar mejoras
+        self.mejoras_activas = []
+        for i in range(4):
+            mejora_box = self._crear_slot_mejora(i)
+            self.mejoras_activas.append(mejora_box)
+            self.mejoras_container.add_widget(mejora_box)
         
-        for evolucion in self.game.evoluciones.values():
-            for mejora in evolucion.mejoras.values():
-                btn = self._crear_boton_mejora(mejora)
-                self.botones_mejora[mejora.id] = btn
-                self.evoluciones_box.add_widget(btn)
+        # Label de estado de IA
+        self.ia_status = Label(
+            text="NUEVA ACTUALIZACIÓN DE IA",
+            size_hint_y=None,
+            height=40,
+            color=(1, 1, 0, 1),
+            font_size='16sp',
+            bold=True
+        )
+        self.mejoras_container.add_widget(self.ia_status)
         
-        # Esto es crucial para que el scroll funcione correctamente
-        self.evoluciones_box.bind(minimum_height=self.evoluciones_box.setter('height'))
-        scroll_view.add_widget(self.evoluciones_box)
-        
+        scroll_view.add_widget(self.mejoras_container)
         return scroll_view
 
-    def _crear_boton_mejora(self, mejora):
-        btn = Button(
-            text=f"{mejora.nombre}\n"
-            f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
-            f"Generando: {mejora.cantidad:.1f}/s",
-            size_hint_y=None,
-            height=60,
-            halign='center'
+    def _crear_slot_mejora(self, index):
+        mejora = list(self.game.evoluciones[1].mejoras.values())[index]
+        
+        # Contenedor principal del slot - importante: size_hint_x = 1
+        slot = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, None),  # Ocupa todo el ancho disponible
+            height=100,
+            padding=[15, 10],
+            spacing=15
         )
         
-        # Establecer el color inicial del botón
-        self._actualizar_color_boton(btn, mejora)
+        # Círculo izquierdo con nivel
+        circulo_nivel = Button(
+            text=str(mejora.nivel),
+            size_hint=(None, None),
+            size=(70, 70),
+            background_normal='',
+            background_color=self._get_color_by_index(index),
+            bold=True,
+            font_size='24sp',
+            disabled=True
+        )
         
-        btn.bind(on_press=lambda x, m=mejora: self.game.comprar_mejora(m))
-        return btn
+        # Información central - ajustado el size_hint_x
+        info_box = BoxLayout(
+            orientation='vertical',
+            size_hint_x=0.6,  # Ocupa más espacio
+            spacing=5,
+            padding=[10, 0]  # Añadido padding horizontal
+        )
+        
+        nombre_label = Label(
+            text=mejora.nombre,
+            font_size='18sp',
+            bold=True,
+            halign='left',
+            text_size=(None, None),  # Permitir que el texto se ajuste
+            color=(1, 1, 1, 1)
+        )
+        
+        generando_label = Label(
+            text=f"Generando: {mejora.obtener_generacion():.1f}/s",
+            font_size='16sp',
+            halign='left',
+            text_size=(None, None),  # Permitir que el texto se ajuste
+            color=(0.8, 0.8, 0.8, 1)
+        )
+        
+        info_box.add_widget(nombre_label)
+        info_box.add_widget(generando_label)
+        
+        # Botón de compra - ajustado el size_hint_x
+        if mejora.id % 4 == 0:
+            btn_compra = Button(
+                text="DESBLOQUEAR",
+                size_hint_x=0.2,  # Ajustado el tamaño
+                background_normal='',
+                background_color=(0.8, 0.6, 0, 1),
+                bold=True
+            )
+        else:
+            btn_compra = Button(
+                text="Comprar",
+                size_hint_x=0.2,  # Ajustado el tamaño
+                background_normal='',
+                background_color=(0.2, 0.5, 0.2, 1),
+                bold=True
+            )
+        
+        btn_compra.bind(on_press=lambda x: self.game.comprar_mejora(mejora))
+        self.botones_mejora[mejora.id] = btn_compra
+        
+        # Añadir todo al slot
+        slot.add_widget(circulo_nivel)
+        slot.add_widget(info_box)
+        slot.add_widget(btn_compra)
+        
+        return slot
+
+    def _get_color_by_index(self, index):
+        """Retorna un color basado en el índice de la mejora"""
+        colors = [
+            (0.8, 0.2, 0.2, 1),  # Rojo
+            (0.8, 0.4, 0.0, 1),  # Naranja
+            (0.2, 0.6, 0.2, 1),  # Verde
+            (0.2, 0.4, 0.8, 1),  # Azul
+            (0.6, 0.2, 0.6, 1),  # Púrpura
+        ]
+        return colors[index % len(colors)]
+
+    def desbloquear_nuevas_mejoras(self):
+        mejoras_actuales = len(self.mejoras_container.children) - 1
+        for i in range(4):
+            nuevo_index = mejoras_actuales + i
+            if nuevo_index < 20:
+                nueva_mejora = self._crear_slot_mejora(nuevo_index)
+                self.mejoras_container.add_widget(nueva_mejora, index=0)
+        
+        self.mejoras_container.remove_widget(self.ia_status)
+        self.mejoras_container.add_widget(self.ia_status)
 
     def _actualizar_color_boton(self, btn, mejora):
         if not mejora.desbloqueada:
-            # Mejora bloqueada
-            btn.background_color = (0.2, 0.2, 0.2, 1)  # Gris oscuro
-            btn.color = (0.5, 0.5, 0.5, 1)  # Texto gris
-        elif mejora.puede_comprar(self.game.datos):
-            # Puede comprarse
-            btn.background_color = (0.2, 0.6, 0.3, 1)  # Verde
-            btn.color = (1, 1, 1, 1)  # Texto blanco
+            btn.disabled = True
+            return
+
+        if mejora.id % 4 == 0:
+            if mejora.nivel > 0:
+                btn.text = "DESBLOQUEADO"
+                btn.disabled = True
+                btn.background_color = (0.2, 0.2, 0.2, 1)
+            else:
+                btn.text = "DESBLOQUEAR"
+                btn.disabled = not mejora.puede_comprar(self.game.datos)
+                btn.background_color = (0.8, 0.6, 0.0, 1) if mejora.puede_comprar(self.game.datos) else (0.4, 0.3, 0.0, 1)
         else:
-            # No hay suficientes datos para comprar
-            btn.background_color = (0.6, 0.2, 0.2, 1)  # Rojo
-            btn.color = (0.8, 0.8, 0.8, 1)  # Texto ligeramente grisáceo
+            btn.text = "Comprar"
+            btn.disabled = not mejora.puede_comprar(self.game.datos)
+            btn.background_color = (0.2, 0.6, 0.3, 1) if mejora.puede_comprar(self.game.datos) else (0.6, 0.2, 0.2, 1)
 
     def actualizar_boton_mejora(self, mejora):
         if mejora.id in self.botones_mejora:
             btn = self.botones_mejora[mejora.id]
-            btn.text = (f"{mejora.nombre}\n"
-                    f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
-                    f"Generando: {mejora.cantidad:.1f}/s\n"
-                    f"Disponible: {mejora.cantidad_disponible:.1f}")
-            
-            # Actualizar el color del botón
-            self._actualizar_color_boton(btn, mejora)
-            
+            slot = btn.parent
+            if slot:
+                # Actualizar círculo de nivel
+                circulo_nivel = slot.children[2]  # El primer widget
+                circulo_nivel.text = str(mejora.nivel)
+                
+                # Actualizar info de generación
+                info_box = slot.children[1]
+                generando_label = info_box.children[0]
+                generando_label.text = f"Generando: {mejora.obtener_generacion():.1f}/s"
+                
+                # Actualizar botón de compra
+                if mejora.id % 4 == 0:
+                    if mejora.nivel > 0:
+                        btn.text = "DESBLOQUEADO"
+                        btn.disabled = True
+                        btn.background_color = (0.3, 0.3, 0.3, 1)
+                    else:
+                        btn.text = "DESBLOQUEAR"
+                        btn.disabled = not mejora.puede_comprar(self.game.datos)
+                else:
+                    btn.text = f"MEJORAR\nNv.{mejora.nivel}"
+                    btn.disabled = not mejora.puede_comprar(self.game.datos)
+
     def _crear_navegacion(self):
         nav_box = BoxLayout(size_hint_y=0.1, spacing=5, padding=[5, 5])
         
@@ -217,37 +270,10 @@ class PantallaJuego(Screen):
         btn_visual = Button(
             text='Visual IA',
             background_color=(0.2, 0.4, 0.8, 1),
-            font_size='16sp',
-            disabled=False
+            font_size='16sp'
         )
         
         btn_visual.bind(on_press=lambda x: self.game.cambiar_pantalla('visual'))
         nav_box.add_widget(btn_mejoras)
         nav_box.add_widget(btn_visual)
         return nav_box
-
-    def comprar_mejora(self, mejora):
-        if mejora.puede_comprar(self.datos):
-            costo = mejora.calcular_costo()
-            self.datos -= costo
-            mejora.nivel += 1
-            # Actualizar el botón específico
-            self.pantalla_juego.actualizar_boton_mejora(mejora)
-    
-    def actualizar_boton_mejora(self, mejora):
-        if mejora.id in self.botones_mejora:
-            btn = self.botones_mejora[mejora.id]
-            btn.text = (f"{mejora.nombre}\n"
-                      f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
-                      f"Generando: {mejora.cantidad:.1f}/s\n"
-                      f"Disponible: {mejora.cantidad_disponible:.1f}")
-
-    def actualizar_mejoras(self):
-        # Actualizar los botones de mejoras
-        for mejora_id, btn in self.botones_mejora.items():
-            mejora = self.game.evoluciones[1].mejoras[mejora_id]
-            self.actualizar_boton_mejora(mejora)
-            
-        # Actualizar los stats con formato
-        self.datos_label.text = f'{int(self.game.datos)}'
-        self.dps_label.text = f'{self.game.datos_por_segundo:.1f}/s'
