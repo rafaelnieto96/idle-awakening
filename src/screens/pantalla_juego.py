@@ -170,12 +170,40 @@ class PantallaJuego(Screen):
             f"Generando: {mejora.cantidad:.1f}/s",
             size_hint_y=None,
             height=60,
-            background_color=(0.3, 0.3, 0.35, 1) if mejora.desbloqueada else (0.2, 0.2, 0.2, 1),
             halign='center'
         )
+        
+        # Establecer el color inicial del botón
+        self._actualizar_color_boton(btn, mejora)
+        
         btn.bind(on_press=lambda x, m=mejora: self.game.comprar_mejora(m))
         return btn
 
+    def _actualizar_color_boton(self, btn, mejora):
+        if not mejora.desbloqueada:
+            # Mejora bloqueada
+            btn.background_color = (0.2, 0.2, 0.2, 1)  # Gris oscuro
+            btn.color = (0.5, 0.5, 0.5, 1)  # Texto gris
+        elif mejora.puede_comprar(self.game.datos):
+            # Puede comprarse
+            btn.background_color = (0.2, 0.6, 0.3, 1)  # Verde
+            btn.color = (1, 1, 1, 1)  # Texto blanco
+        else:
+            # No hay suficientes datos para comprar
+            btn.background_color = (0.6, 0.2, 0.2, 1)  # Rojo
+            btn.color = (0.8, 0.8, 0.8, 1)  # Texto ligeramente grisáceo
+
+    def actualizar_boton_mejora(self, mejora):
+        if mejora.id in self.botones_mejora:
+            btn = self.botones_mejora[mejora.id]
+            btn.text = (f"{mejora.nombre}\n"
+                    f"Nivel: {mejora.nivel} - Costo: {mejora.calcular_costo()} datos\n"
+                    f"Generando: {mejora.cantidad:.1f}/s\n"
+                    f"Disponible: {mejora.cantidad_disponible:.1f}")
+            
+            # Actualizar el color del botón
+            self._actualizar_color_boton(btn, mejora)
+            
     def _crear_navegacion(self):
         nav_box = BoxLayout(size_hint_y=0.1, spacing=5, padding=[5, 5])
         

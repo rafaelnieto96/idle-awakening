@@ -10,7 +10,14 @@ WINDOW_CONFIG = {
 # Configuración del juego
 GAME_CONFIG = {
     'update_interval': 1.0,
-    'transition_duration': 0.3
+    'transition_duration': 0.3,
+    'currency': {
+        'initial_amount': 1110,  # Cantidad inicial de datos
+        'click_amount': 1,    # Cantidad que se obtiene por click (si implementas esta feature)
+        'multiplier': 1.0,    # Multiplicador global de generación
+        'offline_rate': 0.5,  # Tasa de generación cuando el juego está cerrado (50% por defecto)
+        'format_precision': 1 # Decimales a mostrar en la UI
+    }
 }
 
 # Evoluciones y sus requisitos
